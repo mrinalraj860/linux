@@ -929,6 +929,24 @@ struct task_struct {
 	struct mm_struct		*active_mm;
 	struct address_space		*faults_disabled_mapping;
 
+	struct { //CW
+        unsigned long long pgd_alloc_count;
+        unsigned long long pgd_free_count;
+        unsigned long long pgd_set_count;
+
+        unsigned long long pud_alloc_count;
+        unsigned long long pud_free_count;
+        unsigned long long pud_set_count;
+
+        unsigned long long pmd_alloc_count;
+        unsigned long long pmd_free_count;
+        unsigned long long pmd_set_count;
+
+        unsigned long long pte_alloc_count;
+        unsigned long long pte_free_count;
+        unsigned long long pte_set_count;
+    } pg_stats;
+
 	int				exit_state;
 	int				exit_code;
 	int				exit_signal;

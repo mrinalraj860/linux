@@ -441,6 +441,8 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	if (pgd == NULL)
 		goto out;
 
+	current->pg_stats.pgd_alloc_count++;
+	
 	mm->pgd = pgd;
 
 	if (sizeof(pmds) != 0 &&
