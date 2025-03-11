@@ -12,8 +12,10 @@
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
-static inline void native_set_pte(pte_t *ptep , pte_t pte)
+static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
+	struct task_struct *task = current;
+	task->pg_stats.pte_set_count++;
 	*ptep = pte;
 }
 
@@ -40,8 +42,8 @@ static inline void native_pud_clear(pud_t *pudp)
 {
 }
 
-static inline void native_pte_clear(struct mm_struct *mm,
-				    unsigned long addr, pte_t *xp)
+static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr,
+				    pte_t *xp)
 {
 	*xp = native_make_pte(0);
 }
@@ -74,8 +76,10 @@ static inline pud_t native_pudp_get_and_clear(pud_t *xp)
 #endif
 
 /* Bit manipulation helper on pte/pgoff entry */
-static inline unsigned long pte_bitop(unsigned long value, unsigned int rightshift,
-				      unsigned long mask, unsigned int leftshift)
+static inline unsigned long pte_bitop(unsigned long value,
+				      unsigned int rightshift,
+				      unsigned long mask,
+				      unsigned int leftshift)
 {
 	return ((value >> rightshift) & mask) << leftshift;
 }
@@ -99,17 +103,16 @@ static inline unsigned long pte_bitop(unsigned long value, unsigned int rightshi
 
 #define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > 5)
 
-#define __swp_type(x)			(((x).val >> _SWP_TYPE_SHIFT) \
-					 & _SWP_TYPE_MASK)
-#define __swp_offset(x)			((x).val >> SWP_OFFSET_SHIFT)
-#define __swp_entry(type, offset)	((swp_entry_t) { \
-					 (((type) & _SWP_TYPE_MASK) << _SWP_TYPE_SHIFT) \
-					 | ((offset) << SWP_OFFSET_SHIFT) })
-#define __pte_to_swp_entry(pte)		((swp_entry_t) { (pte).pte_low })
-#define __swp_entry_to_pte(x)		((pte_t) { .pte = (x).val })
+#define __swp_type(x) (((x).val >> _SWP_TYPE_SHIFT) & _SWP_TYPE_MASK)
+#define __swp_offset(x) ((x).val >> SWP_OFFSET_SHIFT)
+#define __swp_entry(type, offset)                                        \
+	((swp_entry_t){ (((type) & _SWP_TYPE_MASK) << _SWP_TYPE_SHIFT) | \
+			((offset) << SWP_OFFSET_SHIFT) })
+#define __pte_to_swp_entry(pte) ((swp_entry_t){ (pte).pte_low })
+#define __swp_entry_to_pte(x) ((pte_t){ .pte = (x).val })
 
 /* We borrow bit 7 to store the exclusive marker in swap PTEs. */
-#define _PAGE_SWP_EXCLUSIVE	_PAGE_PSE
+#define _PAGE_SWP_EXCLUSIVE _PAGE_PSE
 
 /* No inverted PFNs on 2 level page tables */
 
