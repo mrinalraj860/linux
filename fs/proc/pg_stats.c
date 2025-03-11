@@ -20,12 +20,18 @@ static int pg_stats_show(struct seq_file *m, void *v)
 		seq_printf(
 			m,
 			"[%d]: [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]]\n",
-			task->pid, task->pgd_alloc_count, task->pgd_free_count,
-			task->pgd_set_count, task->pud_alloc_count,
-			task->pud_free_count, task->pud_set_count,
-			task->pmd_alloc_count, task->pmd_free_count,
-			task->pmd_set_count, task->pte_alloc_count,
-			task->pte_free_count, task->pte_set_count);
+			task->pg_stats.pid, task->pg_stats.pgd_alloc_count,
+			task->pg_stats.pgd_free_count,
+			task->pg_stats.pgd_set_count,
+			task->pg_stats.pud_alloc_count,
+			task->pg_stats.pud_free_count,
+			task->pg_stats.pud_set_count,
+			task->pg_stats.pmd_alloc_count,
+			task->pg_stats.pmd_free_count,
+			task->pg_stats.pmd_set_count,
+			task->pg_stats.pte_alloc_count,
+			task->pg_stats.pte_free_count,
+			task->pg_stats.pte_set_count);
 	}
 
 	// Unlock after done reading task list
