@@ -37,8 +37,8 @@
  */
 static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
-	struct task_struct *task = current;
-	task->pg_stats.pte_set_count++;
+	// struct task_struct *task = current;
+	// task->pg_stats.pte_set_count++;
 	WRITE_ONCE(ptep->pte_high, pte.pte_high);
 	smp_wmb();
 	WRITE_ONCE(ptep->pte_low, pte.pte_low);
