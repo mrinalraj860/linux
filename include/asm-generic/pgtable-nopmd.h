@@ -3,7 +3,7 @@
 #define _PGTABLE_NOPMD_H
 
 #ifndef __ASSEMBLY__
-#include <../linux/sched.h>
+// #include <../linux/sched.h>
 #include <asm-generic/pgtable-nopud.h>
 
 struct mm_struct;
@@ -83,8 +83,8 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
 #define pmd_alloc_one(mm, address) NULL
 static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
 {
-	struct task_struct *task = current;
-	task->pg_stats.pmd_free_count++;
+	// struct task_struct *task = current;
+	// task->pg_stats.pmd_free_count++;
 }
 #define pmd_free_tlb(tlb, x, a) \
 	do {                    \
