@@ -67,15 +67,27 @@ extern pmdval_t early_pmd_flags;
 #ifdef CONFIG_PARAVIRT_XXL
 #include <asm/paravirt.h>
 #else /* !CONFIG_PARAVIRT_XXL */
-static inline void set_pte(pte_t *ptep, pte_t pte)
-{
-    struct task_struct *task = current;
-    task->pg_stats.pte_set_count++;
-
-    // ✅ Set the PTE value
-    native_set_pte(ptep, pte);
-}
-// #define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+#define set_pte(ptep, pte)                                               \
+	do {                                                             \
+		if (!(ptep)) {                                           \
+			pr_err("set_pte: NULL ptep\n");                  \
+			break;                                           \
+		}                                                        \
+                                                                         \
+		if (!IS_ALIGNED((unsigned long)(ptep), sizeof(pte_t))) { \
+			pr_err("set_pte: Misaligned ptep %p\n", (ptep)); \
+			break;                                           \
+		}                                                        \
+                                                                         \
+		if (!current) {                                          \
+			pr_err("set_pte: current task not available\n"); \
+			break;                                           \
+		}                                                        \
+                                                                         \
+		current->pg_stats.pte_set_count++;                       \
+		native_set_pte(ptep, pte);                               \
+	} while (0)
+// #define set_pte(ptep, pte) native_set_pte(ptep, pte)
 
 #define set_pte_atomic(ptep, pte) native_set_pte_atomic(ptep, pte)
 
