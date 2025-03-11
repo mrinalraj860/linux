@@ -4,8 +4,8 @@
 
 #ifdef CONFIG_MMU
 
-#define GFP_PGTABLE_KERNEL	(GFP_KERNEL | __GFP_ZERO)
-#define GFP_PGTABLE_USER	(GFP_PGTABLE_KERNEL | __GFP_ACCOUNT)
+#define GFP_PGTABLE_KERNEL (GFP_KERNEL | __GFP_ZERO)
+#define GFP_PGTABLE_USER (GFP_PGTABLE_KERNEL | __GFP_ACCOUNT)
 
 /**
  * __pte_alloc_one_kernel - allocate memory for a PTE-level kernel page table
@@ -18,14 +18,15 @@
  */
 static inline pte_t *__pte_alloc_one_kernel_noprof(struct mm_struct *mm)
 {
-	struct ptdesc *ptdesc = pagetable_alloc_noprof(GFP_PGTABLE_KERNEL &
-			~__GFP_HIGHMEM, 0);
+	struct ptdesc *ptdesc =
+		pagetable_alloc_noprof(GFP_PGTABLE_KERNEL & ~__GFP_HIGHMEM, 0);
 
 	if (!ptdesc)
 		return NULL;
 	return ptdesc_address(ptdesc);
 }
-#define __pte_alloc_one_kernel(...)	alloc_hooks(__pte_alloc_one_kernel_noprof(__VA_ARGS__))
+#define __pte_alloc_one_kernel(...) \
+	alloc_hooks(__pte_alloc_one_kernel_noprof(__VA_ARGS__))
 
 #ifndef __HAVE_ARCH_PTE_ALLOC_ONE_KERNEL
 /**
@@ -38,7 +39,8 @@ static inline pte_t *pte_alloc_one_kernel_noprof(struct mm_struct *mm)
 {
 	return __pte_alloc_one_kernel_noprof(mm);
 }
-#define pte_alloc_one_kernel(...)	alloc_hooks(pte_alloc_one_kernel_noprof(__VA_ARGS__))
+#define pte_alloc_one_kernel(...) \
+	alloc_hooks(pte_alloc_one_kernel_noprof(__VA_ARGS__))
 #endif
 
 /**
@@ -77,7 +79,7 @@ static inline pgtable_t __pte_alloc_one_noprof(struct mm_struct *mm, gfp_t gfp)
 
 	return ptdesc_page(ptdesc);
 }
-#define __pte_alloc_one(...)	alloc_hooks(__pte_alloc_one_noprof(__VA_ARGS__))
+#define __pte_alloc_one(...) alloc_hooks(__pte_alloc_one_noprof(__VA_ARGS__))
 
 #ifndef __HAVE_ARCH_PTE_ALLOC_ONE
 /**
@@ -92,7 +94,7 @@ static inline pgtable_t pte_alloc_one_noprof(struct mm_struct *mm)
 {
 	return __pte_alloc_one_noprof(mm, GFP_PGTABLE_USER);
 }
-#define pte_alloc_one(...)	alloc_hooks(pte_alloc_one_noprof(__VA_ARGS__))
+#define pte_alloc_one(...) alloc_hooks(pte_alloc_one_noprof(__VA_ARGS__))
 #endif
 
 /*
@@ -108,11 +110,11 @@ static inline pgtable_t pte_alloc_one_noprof(struct mm_struct *mm)
 static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
 {
 	struct ptdesc *ptdesc = page_ptdesc(pte_page);
-
+	struct task_struct *task = current;
+	task->pg_stats.pte_free_count++;
 	pagetable_pte_dtor(ptdesc);
 	pagetable_free(ptdesc);
 }
-
 
 #if CONFIG_PGTABLE_LEVELS > 2
 
@@ -128,7 +130,8 @@ static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
  *
  * Return: pointer to the allocated memory or %NULL on error
  */
-static inline pmd_t *pmd_alloc_one_noprof(struct mm_struct *mm, unsigned long addr)
+static inline pmd_t *pmd_alloc_one_noprof(struct mm_struct *mm,
+					  unsigned long addr)
 {
 	struct ptdesc *ptdesc;
 	gfp_t gfp = GFP_PGTABLE_USER;
@@ -144,15 +147,16 @@ static inline pmd_t *pmd_alloc_one_noprof(struct mm_struct *mm, unsigned long ad
 	}
 	return ptdesc_address(ptdesc);
 }
-#define pmd_alloc_one(...)	alloc_hooks(pmd_alloc_one_noprof(__VA_ARGS__))
+#define pmd_alloc_one(...) alloc_hooks(pmd_alloc_one_noprof(__VA_ARGS__))
 #endif
 
 #ifndef __HAVE_ARCH_PMD_FREE
 static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
 {
 	struct ptdesc *ptdesc = virt_to_ptdesc(pmd);
-
-	BUG_ON((unsigned long)pmd & (PAGE_SIZE-1));
+	struct task_struct *task = current;
+	task->pg_stats.pmd_free_count++;
+	BUG_ON((unsigned long)pmd & (PAGE_SIZE - 1));
 	pagetable_pmd_dtor(ptdesc);
 	pagetable_free(ptdesc);
 }
@@ -162,7 +166,8 @@ static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
 
 #if CONFIG_PGTABLE_LEVELS > 3
 
-static inline pud_t *__pud_alloc_one_noprof(struct mm_struct *mm, unsigned long addr)
+static inline pud_t *__pud_alloc_one_noprof(struct mm_struct *mm,
+					    unsigned long addr)
 {
 	gfp_t gfp = GFP_PGTABLE_USER;
 	struct ptdesc *ptdesc;
@@ -178,7 +183,7 @@ static inline pud_t *__pud_alloc_one_noprof(struct mm_struct *mm, unsigned long 
 	pagetable_pud_ctor(ptdesc);
 	return ptdesc_address(ptdesc);
 }
-#define __pud_alloc_one(...)	alloc_hooks(__pud_alloc_one_noprof(__VA_ARGS__))
+#define __pud_alloc_one(...) alloc_hooks(__pud_alloc_one_noprof(__VA_ARGS__))
 
 #ifndef __HAVE_ARCH_PUD_ALLOC_ONE
 /**
@@ -190,18 +195,19 @@ static inline pud_t *__pud_alloc_one_noprof(struct mm_struct *mm, unsigned long 
  *
  * Return: pointer to the allocated memory or %NULL on error
  */
-static inline pud_t *pud_alloc_one_noprof(struct mm_struct *mm, unsigned long addr)
+static inline pud_t *pud_alloc_one_noprof(struct mm_struct *mm,
+					  unsigned long addr)
 {
 	return __pud_alloc_one_noprof(mm, addr);
 }
-#define pud_alloc_one(...)	alloc_hooks(pud_alloc_one_noprof(__VA_ARGS__))
+#define pud_alloc_one(...) alloc_hooks(pud_alloc_one_noprof(__VA_ARGS__))
 #endif
 
 static inline void __pud_free(struct mm_struct *mm, pud_t *pud)
 {
 	struct ptdesc *ptdesc = virt_to_ptdesc(pud);
 
-	BUG_ON((unsigned long)pud & (PAGE_SIZE-1));
+	BUG_ON((unsigned long)pud & (PAGE_SIZE - 1));
 	pagetable_pud_dtor(ptdesc);
 	pagetable_free(ptdesc);
 }
@@ -209,6 +215,8 @@ static inline void __pud_free(struct mm_struct *mm, pud_t *pud)
 #ifndef __HAVE_ARCH_PUD_FREE
 static inline void pud_free(struct mm_struct *mm, pud_t *pud)
 {
+	struct task_struct *task = current;
+	task->pg_stats.pud_free_count++;
 	__pud_free(mm, pud);
 }
 #endif
