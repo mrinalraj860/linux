@@ -3148,7 +3148,7 @@ static inline int pte_alloc(struct mm_struct *mm, pmd_t *pmd)
 		int ret = __pte_alloc(mm, pmd);
 		if (ret == 0) {
 			struct task_struct *task = current;
-			task->pte_alloc_count++;
+			task->pg_stats.pte_alloc_count++;
 		}
 		return ret;
 	}
