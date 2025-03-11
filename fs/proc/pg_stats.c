@@ -20,7 +20,7 @@ static int pg_stats_show(struct seq_file *m, void *v)
 		seq_printf(
 			m,
 			"[%d]: [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]]\n",
-			task->pg_stats.pid, task->pg_stats.pgd_alloc_count,
+			task->pid, task->pg_stats.pgd_alloc_count,
 			task->pg_stats.pgd_free_count,
 			task->pg_stats.pgd_set_count,
 			task->pg_stats.pud_alloc_count,
