@@ -434,7 +434,7 @@ static inline void ptep_modify_prot_commit(struct vm_area_struct *vma,
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
 	struct task_struct *task = current;
-	task->pte_set_count++;
+	task->pg_stats.pte_set_count++;
 
 	PVOP_VCALL2(mmu.set_pte, ptep, pte.pte);
 }
