@@ -67,7 +67,6 @@ extern pmdval_t early_pmd_flags;
 #ifdef CONFIG_PARAVIRT_XXL
 #include <asm/paravirt.h>
 #else /* !CONFIG_PARAVIRT_XXL */
-// #define set_pte(ptep, pte)		native_set_pte(ptep, pte)
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
 	struct task_struct *task = current;
@@ -78,6 +77,7 @@ static inline void set_pte(pte_t *ptep, pte_t pte)
 	// Call the native function to set the PTE value
 	native_set_pte(ptep, pte);
 }
+// #define set_pte(ptep, pte)		native_set_pte(ptep, pte)
 
 #define set_pte_atomic(ptep, pte) native_set_pte_atomic(ptep, pte)
 
