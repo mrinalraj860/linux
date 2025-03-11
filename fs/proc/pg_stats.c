@@ -19,7 +19,7 @@ static int pg_stats_show(struct seq_file *m, void *v)
 	for_each_process(task) {
 		seq_printf(
 			m,
-			"[%d]: [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]], [[%lu],[%lu],[%lu]]\n",
+			"[%d]: [[%llu],[%llu],[%llu]], [[%llu],[%llu],[%llu]], [[%llu],[%llu],[%llu]], [[%llu],[%llu],[%llu]]\n",
 			task->pid, task->pg_stats.pgd_alloc_count,
 			task->pg_stats.pgd_free_count,
 			task->pg_stats.pgd_set_count,
