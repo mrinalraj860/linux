@@ -9,11 +9,11 @@
 /*
  * Macro to mark a page protection value as UC-
  */
-#define pgprot_noncached(prot)						\
-	((boot_cpu_data.x86 > 3)					\
-	 ? (__pgprot(pgprot_val(prot) |					\
-		     cachemode2protval(_PAGE_CACHE_MODE_UC_MINUS)))	\
-	 : (prot))
+#define pgprot_noncached(prot)                                              \
+	((boot_cpu_data.x86 > 3) ?                                          \
+		 (__pgprot(pgprot_val(prot) |                               \
+			   cachemode2protval(_PAGE_CACHE_MODE_UC_MINUS))) : \
+		 (prot))
 
 #ifndef __ASSEMBLY__
 #include <linux/spinlock.h>
@@ -38,22 +38,24 @@ void ptdump_walk_user_pgd_level_checkwx(void);
 /*
  * Macros to add or remove encryption attribute
  */
-#define pgprot_encrypted(prot)	__pgprot(cc_mkenc(pgprot_val(prot)))
-#define pgprot_decrypted(prot)	__pgprot(cc_mkdec(pgprot_val(prot)))
+#define pgprot_encrypted(prot) __pgprot(cc_mkenc(pgprot_val(prot)))
+#define pgprot_decrypted(prot) __pgprot(cc_mkdec(pgprot_val(prot)))
 
 #ifdef CONFIG_DEBUG_WX
-#define debug_checkwx_user()	ptdump_walk_user_pgd_level_checkwx()
+#define debug_checkwx_user() ptdump_walk_user_pgd_level_checkwx()
 #else
-#define debug_checkwx_user()	do { } while (0)
+#define debug_checkwx_user() \
+	do {                 \
+	} while (0)
 #endif
 
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..
  */
-extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
-	__visible;
-#define ZERO_PAGE(vaddr) ((void)(vaddr),virt_to_page(empty_zero_page))
+extern unsigned long
+	empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] __visible;
+#define ZERO_PAGE(vaddr) ((void)(vaddr), virt_to_page(empty_zero_page))
 
 extern spinlock_t pgd_lock;
 extern struct list_head pgd_list;
@@ -64,61 +66,72 @@ extern pmdval_t early_pmd_flags;
 
 #ifdef CONFIG_PARAVIRT_XXL
 #include <asm/paravirt.h>
-#else  /* !CONFIG_PARAVIRT_XXL */
-#define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+#else /* !CONFIG_PARAVIRT_XXL */
+// #define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+static inline void set_pte(pte_t *ptep, pte_t pte)
+{
+	struct task_struct *task = current;
 
-#define set_pte_atomic(ptep, pte)					\
-	native_set_pte_atomic(ptep, pte)
+	// Increment the PTE set counter
+	task->pte_set_count++;
 
-#define set_pmd(pmdp, pmd)		native_set_pmd(pmdp, pmd)
+	// Call the native function to set the PTE value
+	native_set_pte(ptep, pte);
+}
+
+#define set_pte_atomic(ptep, pte) native_set_pte_atomic(ptep, pte)
+
+#define set_pmd(pmdp, pmd) native_set_pmd(pmdp, pmd)
 
 #ifndef __PAGETABLE_P4D_FOLDED
-#define set_pgd(pgdp, pgd)		native_set_pgd(pgdp, pgd)
-#define pgd_clear(pgd)			(pgtable_l5_enabled() ? native_pgd_clear(pgd) : 0)
+#define set_pgd(pgdp, pgd) native_set_pgd(pgdp, pgd)
+#define pgd_clear(pgd) (pgtable_l5_enabled() ? native_pgd_clear(pgd) : 0)
 #endif
 
 #ifndef set_p4d
-# define set_p4d(p4dp, p4d)		native_set_p4d(p4dp, p4d)
+#define set_p4d(p4dp, p4d) native_set_p4d(p4dp, p4d)
 #endif
 
 #ifndef __PAGETABLE_PUD_FOLDED
-#define p4d_clear(p4d)			native_p4d_clear(p4d)
+#define p4d_clear(p4d) native_p4d_clear(p4d)
 #endif
 
 #ifndef set_pud
-# define set_pud(pudp, pud)		native_set_pud(pudp, pud)
+#define set_pud(pudp, pud) native_set_pud(pudp, pud)
 #endif
 
 #ifndef __PAGETABLE_PUD_FOLDED
-#define pud_clear(pud)			native_pud_clear(pud)
+#define pud_clear(pud) native_pud_clear(pud)
 #endif
 
-#define pte_clear(mm, addr, ptep)	native_pte_clear(mm, addr, ptep)
-#define pmd_clear(pmd)			native_pmd_clear(pmd)
+#define pte_clear(mm, addr, ptep) native_pte_clear(mm, addr, ptep)
+#define pmd_clear(pmd) native_pmd_clear(pmd)
 
-#define pgd_val(x)	native_pgd_val(x)
-#define __pgd(x)	native_make_pgd(x)
+#define pgd_val(x) native_pgd_val(x)
+#define __pgd(x) native_make_pgd(x)
 
 #ifndef __PAGETABLE_P4D_FOLDED
-#define p4d_val(x)	native_p4d_val(x)
-#define __p4d(x)	native_make_p4d(x)
+#define p4d_val(x) native_p4d_val(x)
+#define __p4d(x) native_make_p4d(x)
 #endif
 
 #ifndef __PAGETABLE_PUD_FOLDED
-#define pud_val(x)	native_pud_val(x)
-#define __pud(x)	native_make_pud(x)
+#define pud_val(x) native_pud_val(x)
+#define __pud(x) native_make_pud(x)
 #endif
 
 #ifndef __PAGETABLE_PMD_FOLDED
-#define pmd_val(x)	native_pmd_val(x)
-#define __pmd(x)	native_make_pmd(x)
+#define pmd_val(x) native_pmd_val(x)
+#define __pmd(x) native_make_pmd(x)
 #endif
 
-#define pte_val(x)	native_pte_val(x)
-#define __pte(x)	native_make_pte(x)
+#define pte_val(x) native_pte_val(x)
+#define __pte(x) native_make_pte(x)
 
-#define arch_end_context_switch(prev)	do {} while(0)
-#endif	/* CONFIG_PARAVIRT_XXL */
+#define arch_end_context_switch(prev) \
+	do {                          \
+	} while (0)
+#endif /* CONFIG_PARAVIRT_XXL */
 
 static inline pmd_t pmd_set_flags(pmd_t pmd, pmdval_t set)
 {
@@ -183,7 +196,7 @@ static inline bool pmd_shstk(pmd_t pmd)
 {
 	return cpu_feature_enabled(X86_FEATURE_SHSTK) &&
 	       (pmd_flags(pmd) & (_PAGE_RW | _PAGE_DIRTY | _PAGE_PSE)) ==
-	       (_PAGE_DIRTY | _PAGE_PSE);
+		       (_PAGE_DIRTY | _PAGE_PSE);
 }
 
 #define pmd_young pmd_young
@@ -206,7 +219,7 @@ static inline bool pud_shstk(pud_t pud)
 {
 	return cpu_feature_enabled(X86_FEATURE_SHSTK) &&
 	       (pud_flags(pud) & (_PAGE_RW | _PAGE_DIRTY | _PAGE_PSE)) ==
-	       (_PAGE_DIRTY | _PAGE_PSE);
+		       (_PAGE_DIRTY | _PAGE_PSE);
 }
 
 static inline int pte_write(pte_t pte)
@@ -258,7 +271,7 @@ static inline int pte_special(pte_t pte)
 
 static inline u64 protnone_mask(u64 val);
 
-#define PFN_PTE_SHIFT	PAGE_SHIFT
+#define PFN_PTE_SHIFT PAGE_SHIFT
 
 static inline unsigned long pte_pfn(pte_t pte)
 {
@@ -299,7 +312,7 @@ static inline bool p4d_leaf(p4d_t p4d)
 	return 0;
 }
 
-#define pte_page(pte)	pfn_to_page(pte_pfn(pte))
+#define pte_page(pte) pfn_to_page(pte_pfn(pte))
 
 #define pmd_leaf pmd_leaf
 static inline bool pmd_leaf(pmd_t pte)
@@ -311,13 +324,13 @@ static inline bool pmd_leaf(pmd_t pte)
 /* NOTE: when predicate huge page, consider also pmd_devmap, or use pmd_leaf */
 static inline int pmd_trans_huge(pmd_t pmd)
 {
-	return (pmd_val(pmd) & (_PAGE_PSE|_PAGE_DEVMAP)) == _PAGE_PSE;
+	return (pmd_val(pmd) & (_PAGE_PSE | _PAGE_DEVMAP)) == _PAGE_PSE;
 }
 
 #ifdef CONFIG_HAVE_ARCH_TRANSPARENT_HUGEPAGE_PUD
 static inline int pud_trans_huge(pud_t pud)
 {
-	return (pud_val(pud) & (_PAGE_PSE|_PAGE_DEVMAP)) == _PAGE_PSE;
+	return (pud_val(pud) & (_PAGE_PSE | _PAGE_DEVMAP)) == _PAGE_PSE;
 }
 #endif
 
@@ -355,7 +368,7 @@ static inline pmd_t pmd_mkspecial(pmd_t pmd)
 {
 	return pmd_set_flags(pmd, _PAGE_SPECIAL);
 }
-#endif	/* CONFIG_ARCH_SUPPORTS_PMD_PFNMAP */
+#endif /* CONFIG_ARCH_SUPPORTS_PMD_PFNMAP */
 
 #ifdef CONFIG_ARCH_SUPPORTS_PUD_PFNMAP
 static inline bool pud_special(pud_t pud)
@@ -367,7 +380,7 @@ static inline pud_t pud_mkspecial(pud_t pud)
 {
 	return pud_set_flags(pud, _PAGE_SPECIAL);
 }
-#endif	/* CONFIG_ARCH_SUPPORTS_PUD_PFNMAP */
+#endif /* CONFIG_ARCH_SUPPORTS_PUD_PFNMAP */
 
 static inline int pgd_devmap(pgd_t pgd)
 {
@@ -536,7 +549,7 @@ static inline pte_t pte_mkspecial(pte_t pte)
 
 static inline pte_t pte_mkdevmap(pte_t pte)
 {
-	return pte_set_flags(pte, _PAGE_SPECIAL|_PAGE_DEVMAP);
+	return pte_set_flags(pte, _PAGE_SPECIAL | _PAGE_DEVMAP);
 }
 
 /* See comments above mksaveddirty_shift() */
@@ -808,13 +821,15 @@ static inline pud_t pfn_pud(unsigned long page_nr, pgprot_t pgprot)
 static inline pmd_t pmd_mkinvalid(pmd_t pmd)
 {
 	return pfn_pmd(pmd_pfn(pmd),
-		      __pgprot(pmd_flags(pmd) & ~(_PAGE_PRESENT|_PAGE_PROTNONE)));
+		       __pgprot(pmd_flags(pmd) &
+				~(_PAGE_PRESENT | _PAGE_PROTNONE)));
 }
 
 static inline pud_t pud_mkinvalid(pud_t pud)
 {
 	return pfn_pud(pud_pfn(pud),
-		       __pgprot(pud_flags(pud) & ~(_PAGE_PRESENT|_PAGE_PROTNONE)));
+		       __pgprot(pud_flags(pud) &
+				~(_PAGE_PRESENT | _PAGE_PROTNONE)));
 }
 
 static inline u64 flip_protnone_guard(u64 oldval, u64 val, u64 mask);
@@ -937,12 +952,9 @@ static inline int is_new_memtype_allowed(u64 paddr, unsigned long size,
 	 */
 	if ((pcm == _PAGE_CACHE_MODE_UC_MINUS &&
 	     new_pcm == _PAGE_CACHE_MODE_WB) ||
-	    (pcm == _PAGE_CACHE_MODE_WC &&
-	     new_pcm == _PAGE_CACHE_MODE_WB) ||
-	    (pcm == _PAGE_CACHE_MODE_WT &&
-	     new_pcm == _PAGE_CACHE_MODE_WB) ||
-	    (pcm == _PAGE_CACHE_MODE_WT &&
-	     new_pcm == _PAGE_CACHE_MODE_WC)) {
+	    (pcm == _PAGE_CACHE_MODE_WC && new_pcm == _PAGE_CACHE_MODE_WB) ||
+	    (pcm == _PAGE_CACHE_MODE_WT && new_pcm == _PAGE_CACHE_MODE_WB) ||
+	    (pcm == _PAGE_CACHE_MODE_WT && new_pcm == _PAGE_CACHE_MODE_WC)) {
 		return 0;
 	}
 
@@ -966,20 +978,19 @@ static inline pgd_t pti_set_user_pgtbl(pgd_t *pgdp, pgd_t pgd)
 		return pgd;
 	return __pti_set_user_pgtbl(pgdp, pgd);
 }
-#else   /* CONFIG_MITIGATION_PAGE_TABLE_ISOLATION */
+#else /* CONFIG_MITIGATION_PAGE_TABLE_ISOLATION */
 static inline pgd_t pti_set_user_pgtbl(pgd_t *pgdp, pgd_t pgd)
 {
 	return pgd;
 }
-#endif  /* CONFIG_MITIGATION_PAGE_TABLE_ISOLATION */
+#endif /* CONFIG_MITIGATION_PAGE_TABLE_ISOLATION */
 
-#endif	/* __ASSEMBLY__ */
-
+#endif /* __ASSEMBLY__ */
 
 #ifdef CONFIG_X86_32
-# include <asm/pgtable_32.h>
+#include <asm/pgtable_32.h>
 #else
-# include <asm/pgtable_64.h>
+#include <asm/pgtable_64.h>
 #endif
 
 #ifndef __ASSEMBLY__
@@ -1005,7 +1016,7 @@ static inline pte_t pte_advance_pfn(pte_t pte, unsigned long nr)
 		return __pte(pte_val(pte) - (nr << PFN_PTE_SHIFT));
 	return __pte(pte_val(pte) + (nr << PFN_PTE_SHIFT));
 }
-#define pte_advance_pfn	pte_advance_pfn
+#define pte_advance_pfn pte_advance_pfn
 
 static inline int pte_present(pte_t a)
 {
@@ -1026,7 +1037,7 @@ static inline bool pte_accessible(struct mm_struct *mm, pte_t a)
 		return true;
 
 	if ((pte_flags(a) & _PAGE_PROTNONE) &&
-			atomic_read(&mm->tlb_flush_pending))
+	    atomic_read(&mm->tlb_flush_pending))
 		return true;
 
 	return false;
@@ -1050,14 +1061,14 @@ static inline int pmd_present(pmd_t pmd)
  */
 static inline int pte_protnone(pte_t pte)
 {
-	return (pte_flags(pte) & (_PAGE_PROTNONE | _PAGE_PRESENT))
-		== _PAGE_PROTNONE;
+	return (pte_flags(pte) & (_PAGE_PROTNONE | _PAGE_PRESENT)) ==
+	       _PAGE_PROTNONE;
 }
 
 static inline int pmd_protnone(pmd_t pmd)
 {
-	return (pmd_flags(pmd) & (_PAGE_PROTNONE | _PAGE_PRESENT))
-		== _PAGE_PROTNONE;
+	return (pmd_flags(pmd) & (_PAGE_PROTNONE | _PAGE_PRESENT)) ==
+	       _PAGE_PROTNONE;
 }
 #endif /* CONFIG_NUMA_BALANCING */
 
@@ -1078,7 +1089,7 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pmd_page(pmd)	pfn_to_page(pmd_pfn(pmd))
+#define pmd_page(pmd) pfn_to_page(pmd_pfn(pmd))
 
 /*
  * Conversion functions: convert a page and protection to a page entry,
@@ -1087,14 +1098,14 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
  * (Currently stuck as a macro because of indirect forward reference
  * to linux/mm.h:page_to_nid())
  */
-#define mk_pte(page, pgprot)						  \
-({									  \
-	pgprot_t __pgprot = pgprot;					  \
-									  \
-	WARN_ON_ONCE((pgprot_val(__pgprot) & (_PAGE_DIRTY | _PAGE_RW)) == \
-		    _PAGE_DIRTY);					  \
-	pfn_pte(page_to_pfn(page), __pgprot);				  \
-})
+#define mk_pte(page, pgprot)                                             \
+	({                                                               \
+		pgprot_t __pgprot = pgprot;                              \
+                                                                         \
+		WARN_ON_ONCE((pgprot_val(__pgprot) &                     \
+			      (_PAGE_DIRTY | _PAGE_RW)) == _PAGE_DIRTY); \
+		pfn_pte(page_to_pfn(page), __pgprot);                    \
+	})
 
 static inline int pmd_bad(pmd_t pmd)
 {
@@ -1127,7 +1138,7 @@ static inline pmd_t *pud_pgtable(pud_t pud)
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pud_page(pud)	pfn_to_page(pud_pfn(pud))
+#define pud_page(pud) pfn_to_page(pud_pfn(pud))
 
 #define pud_leaf pud_leaf
 static inline bool pud_leaf(pud_t pud)
@@ -1139,7 +1150,7 @@ static inline int pud_bad(pud_t pud)
 {
 	return (pud_flags(pud) & ~(_KERNPG_TABLE | _PAGE_USER)) != 0;
 }
-#endif	/* CONFIG_PGTABLE_LEVELS > 2 */
+#endif /* CONFIG_PGTABLE_LEVELS > 2 */
 
 #if CONFIG_PGTABLE_LEVELS > 3
 static inline int p4d_none(p4d_t p4d)
@@ -1161,7 +1172,7 @@ static inline pud_t *p4d_pgtable(p4d_t p4d)
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define p4d_page(p4d)	pfn_to_page(p4d_pfn(p4d))
+#define p4d_page(p4d) pfn_to_page(p4d_pfn(p4d))
 
 static inline int p4d_bad(p4d_t p4d)
 {
@@ -1172,7 +1183,7 @@ static inline int p4d_bad(p4d_t p4d)
 
 	return (p4d_flags(p4d) & ~ignore_flags) != 0;
 }
-#endif  /* CONFIG_PGTABLE_LEVELS > 3 */
+#endif /* CONFIG_PGTABLE_LEVELS > 3 */
 
 static inline unsigned long p4d_index(unsigned long address)
 {
@@ -1196,7 +1207,7 @@ static inline unsigned long pgd_page_vaddr(pgd_t pgd)
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pgd_page(pgd)	pfn_to_page(pgd_pfn(pgd))
+#define pgd_page(pgd) pfn_to_page(pgd_pfn(pgd))
 
 /* to find an entry in a page-table-directory. */
 static inline p4d_t *p4d_offset(pgd_t *pgd, unsigned long address)
@@ -1231,12 +1242,12 @@ static inline int pgd_none(pgd_t pgd)
 	 */
 	return !native_pgd_val(pgd);
 }
-#endif	/* CONFIG_PGTABLE_LEVELS > 4 */
+#endif /* CONFIG_PGTABLE_LEVELS > 4 */
 
-#endif	/* __ASSEMBLY__ */
+#endif /* __ASSEMBLY__ */
 
-#define KERNEL_PGD_BOUNDARY	pgd_index(PAGE_OFFSET)
-#define KERNEL_PGD_PTRS		(PTRS_PER_PGD - KERNEL_PGD_BOUNDARY)
+#define KERNEL_PGD_BOUNDARY pgd_index(PAGE_OFFSET)
+#define KERNEL_PGD_PTRS (PTRS_PER_PGD - KERNEL_PGD_BOUNDARY)
 
 #ifndef __ASSEMBLY__
 
@@ -1244,8 +1255,8 @@ extern int direct_gbpages;
 void init_mem_mapping(void);
 void early_alloc_pgt_buf(void);
 void __init poking_init(void);
-unsigned long init_memory_mapping(unsigned long start,
-				  unsigned long end, pgprot_t prot);
+unsigned long init_memory_mapping(unsigned long start, unsigned long end,
+				  pgprot_t prot);
 
 #ifdef CONFIG_X86_64
 extern pgd_t trampoline_pgd_entry;
@@ -1300,7 +1311,7 @@ static inline void set_pud_at(struct mm_struct *mm, unsigned long addr,
  */
 struct vm_area_struct;
 
-#define  __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
+#define __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 extern int ptep_set_access_flags(struct vm_area_struct *vma,
 				 unsigned long address, pte_t *ptep,
 				 pte_t entry, int dirty);
@@ -1342,8 +1353,8 @@ static inline pte_t ptep_get_and_clear_full(struct mm_struct *mm,
 }
 
 #define __HAVE_ARCH_PTEP_SET_WRPROTECT
-static inline void ptep_set_wrprotect(struct mm_struct *mm,
-				      unsigned long addr, pte_t *ptep)
+static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+				      pte_t *ptep)
 {
 	/*
 	 * Avoid accidentally creating shadow stack PTEs
@@ -1355,14 +1366,17 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
 	old_pte = READ_ONCE(*ptep);
 	do {
 		new_pte = pte_wrprotect(old_pte);
-	} while (!try_cmpxchg((long *)&ptep->pte, (long *)&old_pte, *(long *)&new_pte));
+	} while (!try_cmpxchg((long *)&ptep->pte, (long *)&old_pte,
+			      *(long *)&new_pte));
 }
 
-#define flush_tlb_fix_spurious_fault(vma, address, ptep) do { } while (0)
+#define flush_tlb_fix_spurious_fault(vma, address, ptep) \
+	do {                                             \
+	} while (0)
 
-#define mk_pmd(page, pgprot)   pfn_pmd(page_to_pfn(page), (pgprot))
+#define mk_pmd(page, pgprot) pfn_pmd(page_to_pfn(page), (pgprot))
 
-#define  __HAVE_ARCH_PMDP_SET_ACCESS_FLAGS
+#define __HAVE_ARCH_PMDP_SET_ACCESS_FLAGS
 extern int pmdp_set_access_flags(struct vm_area_struct *vma,
 				 unsigned long address, pmd_t *pmdp,
 				 pmd_t entry, int dirty);
@@ -1380,10 +1394,9 @@ extern int pudp_test_and_clear_young(struct vm_area_struct *vma,
 extern int pmdp_clear_flush_young(struct vm_area_struct *vma,
 				  unsigned long address, pmd_t *pmdp);
 
-
 #define __HAVE_ARCH_PMDP_HUGE_GET_AND_CLEAR
-static inline pmd_t pmdp_huge_get_and_clear(struct mm_struct *mm, unsigned long addr,
-				       pmd_t *pmdp)
+static inline pmd_t pmdp_huge_get_and_clear(struct mm_struct *mm,
+					    unsigned long addr, pmd_t *pmdp)
 {
 	pmd_t pmd = native_pmdp_get_and_clear(pmdp);
 
@@ -1394,7 +1407,7 @@ static inline pmd_t pmdp_huge_get_and_clear(struct mm_struct *mm, unsigned long 
 
 #define __HAVE_ARCH_PUDP_HUGE_GET_AND_CLEAR
 static inline pud_t pudp_huge_get_and_clear(struct mm_struct *mm,
-					unsigned long addr, pud_t *pudp)
+					    unsigned long addr, pud_t *pudp)
 {
 	pud_t pud = native_pudp_get_and_clear(pudp);
 
@@ -1404,8 +1417,8 @@ static inline pud_t pudp_huge_get_and_clear(struct mm_struct *mm,
 }
 
 #define __HAVE_ARCH_PMDP_SET_WRPROTECT
-static inline void pmdp_set_wrprotect(struct mm_struct *mm,
-				      unsigned long addr, pmd_t *pmdp)
+static inline void pmdp_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+				      pmd_t *pmdp)
 {
 	/*
 	 * Avoid accidentally creating shadow stack PTEs
@@ -1417,13 +1430,15 @@ static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 	old_pmd = READ_ONCE(*pmdp);
 	do {
 		new_pmd = pmd_wrprotect(old_pmd);
-	} while (!try_cmpxchg((long *)pmdp, (long *)&old_pmd, *(long *)&new_pmd));
+	} while (!try_cmpxchg((long *)pmdp, (long *)&old_pmd,
+			      *(long *)&new_pmd));
 }
 
 #ifndef pmdp_establish
 #define pmdp_establish pmdp_establish
 static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
-		unsigned long address, pmd_t *pmdp, pmd_t pmd)
+				   unsigned long address, pmd_t *pmdp,
+				   pmd_t pmd)
 {
 	page_table_check_pmd_set(vma->vm_mm, pmdp, pmd);
 	if (IS_ENABLED(CONFIG_SMP)) {
@@ -1438,7 +1453,8 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 
 #ifdef CONFIG_HAVE_ARCH_TRANSPARENT_HUGEPAGE_PUD
 static inline pud_t pudp_establish(struct vm_area_struct *vma,
-		unsigned long address, pud_t *pudp, pud_t pud)
+				   unsigned long address, pud_t *pudp,
+				   pud_t pud)
 {
 	page_table_check_pud_set(vma->vm_mm, pudp, pud);
 	if (IS_ENABLED(CONFIG_SMP)) {
@@ -1472,8 +1488,11 @@ static inline bool pgdp_maps_userspace(void *__ptr)
 	return (((ptr & ~PAGE_MASK) / sizeof(pgd_t)) < PGD_KERNEL_START);
 }
 
-#define pgd_leaf	pgd_leaf
-static inline bool pgd_leaf(pgd_t pgd) { return false; }
+#define pgd_leaf pgd_leaf
+static inline bool pgd_leaf(pgd_t pgd)
+{
+	return false;
+}
 
 #ifdef CONFIG_MITIGATION_PAGE_TABLE_ISOLATION
 /*
@@ -1482,7 +1501,7 @@ static inline bool pgd_leaf(pgd_t pgd) { return false; }
  * the user one is in the last 4k.  To switch between them, you
  * just need to flip the 12th bit in their addresses.
  */
-#define PTI_PGTABLE_SWITCH_BIT	PAGE_SHIFT
+#define PTI_PGTABLE_SWITCH_BIT PAGE_SHIFT
 
 /*
  * This generates better code than the inline assembly in
@@ -1565,20 +1584,21 @@ static inline unsigned long page_level_mask(enum pg_level level)
  * tables contain all the necessary information.
  */
 static inline void update_mmu_cache(struct vm_area_struct *vma,
-		unsigned long addr, pte_t *ptep)
+				    unsigned long addr, pte_t *ptep)
 {
 }
 static inline void update_mmu_cache_range(struct vm_fault *vmf,
-		struct vm_area_struct *vma, unsigned long addr,
-		pte_t *ptep, unsigned int nr)
+					  struct vm_area_struct *vma,
+					  unsigned long addr, pte_t *ptep,
+					  unsigned int nr)
 {
 }
 static inline void update_mmu_cache_pmd(struct vm_area_struct *vma,
-		unsigned long addr, pmd_t *pmd)
+					unsigned long addr, pmd_t *pmd)
 {
 }
 static inline void update_mmu_cache_pud(struct vm_area_struct *vma,
-		unsigned long addr, pud_t *pud)
+					unsigned long addr, pud_t *pud)
 {
 }
 static inline pte_t pte_swp_mkexclusive(pte_t pte)
@@ -1691,7 +1711,7 @@ static inline bool __pkru_allows_pkey(u16 pkey, bool write)
  */
 static inline bool __pte_access_permitted(unsigned long pteval, bool write)
 {
-	unsigned long need_pte_bits = _PAGE_PRESENT|_PAGE_USER;
+	unsigned long need_pte_bits = _PAGE_PRESENT | _PAGE_USER;
 
 	/*
 	 * Write=0,Dirty=1 PTEs are shadow stack, which the kernel
@@ -1758,12 +1778,14 @@ static inline bool pte_user_accessible_page(pte_t pte)
 
 static inline bool pmd_user_accessible_page(pmd_t pmd)
 {
-	return pmd_leaf(pmd) && (pmd_val(pmd) & _PAGE_PRESENT) && (pmd_val(pmd) & _PAGE_USER);
+	return pmd_leaf(pmd) && (pmd_val(pmd) & _PAGE_PRESENT) &&
+	       (pmd_val(pmd) & _PAGE_USER);
 }
 
 static inline bool pud_user_accessible_page(pud_t pud)
 {
-	return pud_leaf(pud) && (pud_val(pud) & _PAGE_PRESENT) && (pud_val(pud) & _PAGE_USER);
+	return pud_leaf(pud) && (pud_val(pud) & _PAGE_PRESENT) &&
+	       (pud_val(pud) & _PAGE_USER);
 }
 #endif
 
@@ -1783,35 +1805,35 @@ bool arch_is_platform_page(u64 paddr);
  * same value. Otherwise, use the typical "set" helpers and flush the
  * TLB.
  */
-#define set_pte_safe(ptep, pte) \
-({ \
-	WARN_ON_ONCE(pte_present(*ptep) && !pte_same(*ptep, pte)); \
-	set_pte(ptep, pte); \
-})
+#define set_pte_safe(ptep, pte)                                            \
+	({                                                                 \
+		WARN_ON_ONCE(pte_present(*ptep) && !pte_same(*ptep, pte)); \
+		set_pte(ptep, pte);                                        \
+	})
 
-#define set_pmd_safe(pmdp, pmd) \
-({ \
-	WARN_ON_ONCE(pmd_present(*pmdp) && !pmd_same(*pmdp, pmd)); \
-	set_pmd(pmdp, pmd); \
-})
+#define set_pmd_safe(pmdp, pmd)                                            \
+	({                                                                 \
+		WARN_ON_ONCE(pmd_present(*pmdp) && !pmd_same(*pmdp, pmd)); \
+		set_pmd(pmdp, pmd);                                        \
+	})
 
-#define set_pud_safe(pudp, pud) \
-({ \
-	WARN_ON_ONCE(pud_present(*pudp) && !pud_same(*pudp, pud)); \
-	set_pud(pudp, pud); \
-})
+#define set_pud_safe(pudp, pud)                                            \
+	({                                                                 \
+		WARN_ON_ONCE(pud_present(*pudp) && !pud_same(*pudp, pud)); \
+		set_pud(pudp, pud);                                        \
+	})
 
-#define set_p4d_safe(p4dp, p4d) \
-({ \
-	WARN_ON_ONCE(p4d_present(*p4dp) && !p4d_same(*p4dp, p4d)); \
-	set_p4d(p4dp, p4d); \
-})
+#define set_p4d_safe(p4dp, p4d)                                            \
+	({                                                                 \
+		WARN_ON_ONCE(p4d_present(*p4dp) && !p4d_same(*p4dp, p4d)); \
+		set_p4d(p4dp, p4d);                                        \
+	})
 
-#define set_pgd_safe(pgdp, pgd) \
-({ \
-	WARN_ON_ONCE(pgd_present(*pgdp) && !pgd_same(*pgdp, pgd)); \
-	set_pgd(pgdp, pgd); \
-})
-#endif	/* __ASSEMBLY__ */
+#define set_pgd_safe(pgdp, pgd)                                            \
+	({                                                                 \
+		WARN_ON_ONCE(pgd_present(*pgdp) && !pgd_same(*pgdp, pgd)); \
+		set_pgd(pgdp, pgd);                                        \
+	})
+#endif /* __ASSEMBLY__ */
 
 #endif /* _ASM_X86_PGTABLE_H */
