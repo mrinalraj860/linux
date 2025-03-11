@@ -3,7 +3,7 @@
 #define _PGTABLE_NOPMD_H
 
 #ifndef __ASSEMBLY__
-
+#include <include/linux/sched.h>
 #include <asm-generic/pgtable-nopud.h>
 
 struct mm_struct;
