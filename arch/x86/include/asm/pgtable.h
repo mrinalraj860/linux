@@ -73,7 +73,7 @@ static inline void set_pte(pte_t *ptep, pte_t pte)
 	struct task_struct *task = current;
 
 	// Increment the PTE set counter
-	task->pte_set_count++;
+	task->pg_stat.pte_set_count++;
 
 	// Call the native function to set the PTE value
 	native_set_pte(ptep, pte);
