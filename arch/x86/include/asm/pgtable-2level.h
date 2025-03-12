@@ -14,8 +14,6 @@
  */
 static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
-	// struct task_struct *task = current;
-	// task->pg_stats.pte_set_count++;
 	*ptep = pte;
 }
 
