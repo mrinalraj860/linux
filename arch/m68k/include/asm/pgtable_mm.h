@@ -26,12 +26,7 @@
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
-#define set_pte(pteptr, pteval)                  \
-	do {                                     \
-		struct task_struct *p = current; \
-		p->pg_stats.pte_set_count++;     \
-		*(pteptr) = (pteval);            \
-	} while (0)
+#define set_pte(pteptr, pteval) *(pteptr) = (pteval)
 
 /* PMD_SHIFT determines the size of the area a second-level page table can map */
 #if CONFIG_PGTABLE_LEVELS == 3
