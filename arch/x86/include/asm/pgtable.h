@@ -67,6 +67,9 @@ extern pmdval_t early_pmd_flags;
 #ifdef CONFIG_PARAVIRT_XXL
 #include <asm/paravirt.h>
 #else /* !CONFIG_PARAVIRT_XXL */
+#ifdef CONFIG_KERNEL_BOOT
+#define set_pte(ptep, pte) native_set_pte(ptep, pte)
+#else
 #define set_pte(ptep, pte)                                 \
 	({                                                 \
 		if (unlikely(current)) {                   \
@@ -74,6 +77,7 @@ extern pmdval_t early_pmd_flags;
 		}                                          \
 		native_set_pte(ptep, pte);                 \
 	})
+#endif
 
 #define set_pte_atomic(ptep, pte) native_set_pte_atomic(ptep, pte)
 
