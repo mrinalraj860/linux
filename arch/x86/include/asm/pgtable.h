@@ -69,6 +69,8 @@ extern pmdval_t early_pmd_flags;
 #else /* !CONFIG_PARAVIRT_XXL */
 #define set_pte(ptep, pte)                         \
 	do {                                       \
+		if (unlikely(!current))            \
+			break;                     \
 		current->pg_stats.pte_set_count++; \
 		native_set_pte(ptep, pte);         \
 	} while (0)
