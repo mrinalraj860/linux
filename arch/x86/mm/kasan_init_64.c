@@ -127,7 +127,7 @@ static void __init kasan_populate_pgd(pgd_t *pgd, unsigned long addr,
 
 	if (pgd_none(*pgd)) {
 		p = early_alloc(PAGE_SIZE, nid, true);
-		current->pg_stats->pgd_set_count++;
+		current->pg_stats.pgd_set_count++;
 		pgd_populate(&init_mm, pgd, p);
 	}
 
@@ -271,7 +271,7 @@ static void __init kasan_shallow_populate_pgds(void *start, void *end)
 
 		if (pgd_none(*pgd)) {
 			p = early_alloc(PAGE_SIZE, NUMA_NO_NODE, true);
-			current->pg_stats->pgd_set_count++;
+			current->pg_stats.pgd_set_count++;
 			pgd_populate(&init_mm, pgd, p);
 		}
 

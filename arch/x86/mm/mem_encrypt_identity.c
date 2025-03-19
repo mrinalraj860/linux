@@ -181,7 +181,7 @@ static void __head sme_populate_pgd(struct sme_populate_pgd_data *ppd)
 		pte = ppd->pgtable_area;
 		memset(pte, 0, sizeof(*pte) * PTRS_PER_PTE);
 		ppd->pgtable_area += sizeof(*pte) * PTRS_PER_PTE;
-		current->pg_stats->pmd_set_count++;
+		current->pg_stats.pmd_set_count++;
 		set_pmd(pmd, __pmd(PMD_FLAGS | __pa(pte)));
 	}
 
@@ -190,7 +190,7 @@ static void __head sme_populate_pgd(struct sme_populate_pgd_data *ppd)
 
 	pte = pte_offset_kernel(pmd, ppd->vaddr);
 	if (pte_none(*pte)) {
-		current->pg_stats->pte_set_count++;
+		current->pg_stats.pte_set_count++;
 		set_pte(pte, __pte(ppd->paddr | ppd->pte_flags));
 	}
 }

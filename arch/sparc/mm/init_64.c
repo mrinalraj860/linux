@@ -1793,7 +1793,7 @@ static unsigned long __ref kernel_map_range(unsigned long pstart,
 			if (!new)
 				goto err_alloc;
 			alloc_bytes += PAGE_SIZE;
-			current->pg_stats->pgd_set_count++;
+			current->pg_stats.pgd_set_count++;
 			pgd_populate(&init_mm, pgd, new);
 		}
 
