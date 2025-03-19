@@ -91,6 +91,7 @@ static int __init init_transition_pgtable(pgd_t *pgd)
 		p4d = (p4d_t *)alloc_pgt_page(NULL);
 		if (!p4d)
 			return -ENOMEM;
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd, __pgd(__pa(p4d) | _KERNPG_TABLE));
 	}
 	p4d = p4d_offset(pgd, vaddr);
@@ -105,6 +106,7 @@ static int __init init_transition_pgtable(pgd_t *pgd)
 		pmd = (pmd_t *)alloc_pgt_page(NULL);
 		if (!pmd)
 			return -ENOMEM;
+		current->pg_stats.pud_set_count++;
 		set_pud(pud, __pud(__pa(pmd) | _KERNPG_TABLE));
 	}
 	pmd = pmd_offset(pud, vaddr);
@@ -112,11 +114,13 @@ static int __init init_transition_pgtable(pgd_t *pgd)
 		pte = (pte_t *)alloc_pgt_page(NULL);
 		if (!pte)
 			return -ENOMEM;
+		current->pg_stats.pmd_set_count++;
 		set_pmd(pmd, __pmd(__pa(pte) | _KERNPG_TABLE));
 	}
 	pte = pte_offset_kernel(pmd, vaddr);
 
 	paddr = __pa(vaddr);
+	current->pg_stats.pte_set_count++;
 	set_pte(pte, pfn_pte(paddr >> PAGE_SHIFT, prot));
 
 	return 0;
@@ -126,9 +130,9 @@ static int __init acpi_mp_setup_reset(u64 reset_vector)
 {
 	struct x86_mapping_info info = {
 		.alloc_pgt_page = alloc_pgt_page,
-		.free_pgt_page	= free_pgt_page,
-		.page_flag      = __PAGE_KERNEL_LARGE_EXEC,
-		.kernpg_flag    = _KERNPG_TABLE_NOENC,
+		.free_pgt_page = free_pgt_page,
+		.page_flag = __PAGE_KERNEL_LARGE_EXEC,
+		.kernpg_flag = _KERNPG_TABLE_NOENC,
 	};
 	pgd_t *pgd;
 
@@ -140,15 +144,14 @@ static int __init acpi_mp_setup_reset(u64 reset_vector)
 		unsigned long mstart, mend;
 
 		mstart = pfn_mapped[i].start << PAGE_SHIFT;
-		mend   = pfn_mapped[i].end << PAGE_SHIFT;
+		mend = pfn_mapped[i].end << PAGE_SHIFT;
 		if (kernel_ident_mapping_init(&info, pgd, mstart, mend)) {
 			kernel_ident_mapping_free(&info, pgd);
 			return -ENOMEM;
 		}
 	}
 
-	if (kernel_ident_mapping_init(&info, pgd,
-				      PAGE_ALIGN_DOWN(reset_vector),
+	if (kernel_ident_mapping_init(&info, pgd, PAGE_ALIGN_DOWN(reset_vector),
 				      PAGE_ALIGN(reset_vector + 1))) {
 		kernel_ident_mapping_free(&info, pgd);
 		return -ENOMEM;
@@ -172,7 +175,8 @@ static int __init acpi_mp_setup_reset(u64 reset_vector)
 static int acpi_wakeup_cpu(u32 apicid, unsigned long start_ip)
 {
 	if (!acpi_mp_wake_mailbox_paddr) {
-		pr_warn_once("No MADT mailbox: cannot bringup secondary CPUs. Booting with kexec?\n");
+		pr_warn_once(
+			"No MADT mailbox: cannot bringup secondary CPUs. Booting with kexec?\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -197,7 +201,7 @@ static int acpi_wakeup_cpu(u32 apicid, unsigned long start_ip)
 	 * firmware before the wakeup command is visible.  smp_store_release()
 	 * ensures ordering and visibility.
 	 */
-	acpi_mp_wake_mailbox->apic_id	    = apicid;
+	acpi_mp_wake_mailbox->apic_id = apicid;
 	acpi_mp_wake_mailbox->wakeup_vector = start_ip;
 	smp_store_release(&acpi_mp_wake_mailbox->command,
 			  ACPI_MP_WAKE_COMMAND_WAKEUP);
@@ -226,7 +230,8 @@ static int acpi_wakeup_cpu(u32 apicid, unsigned long start_ip)
 	return 0;
 }
 
-static void acpi_mp_disable_offlining(struct acpi_madt_multiproc_wakeup *mp_wake)
+static void
+acpi_mp_disable_offlining(struct acpi_madt_multiproc_wakeup *mp_wake)
 {
 	cpu_hotplug_disable_offlining();
 

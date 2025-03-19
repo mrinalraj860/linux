@@ -38,6 +38,7 @@ void __init setup_olpc_ofw_pgd(void)
 	ofw_pde = &base[OLPC_OFW_PDE_NR];
 
 	/* install OFW's PDE permanently into the kernel's pgtable */
+	current->pg_stats.pgd_set_count++;
 	set_pgd(&swapper_pg_dir[OLPC_OFW_PDE_NR], *ofw_pde);
 	/* implicit optimization barrier here due to uninline function return */
 
@@ -45,7 +46,7 @@ void __init setup_olpc_ofw_pgd(void)
 }
 
 int __olpc_ofw(const char *name, int nr_args, const void **args, int nr_res,
-		void **res)
+	       void **res)
 {
 	int ofw_args[MAXARGS + 3];
 	unsigned long flags;
@@ -88,7 +89,7 @@ EXPORT_SYMBOL_GPL(olpc_ofw_present);
 #define OFW_MIN 0xff000000
 
 /* OFW starts on a 1MB boundary */
-#define OFW_BOUND (1<<20)
+#define OFW_BOUND (1 << 20)
 
 void __init olpc_ofw_detect(void)
 {
@@ -102,16 +103,18 @@ void __init olpc_ofw_detect(void)
 	olpc_ofw_cif = (int (*)(int *))hdr->cif_handler;
 
 	if ((unsigned long)olpc_ofw_cif < OFW_MIN) {
-		printk(KERN_ERR "OFW detected, but cif has invalid address 0x%lx - disabling.\n",
-				(unsigned long)olpc_ofw_cif);
+		printk(KERN_ERR
+		       "OFW detected, but cif has invalid address 0x%lx - disabling.\n",
+		       (unsigned long)olpc_ofw_cif);
 		olpc_ofw_cif = NULL;
 		return;
 	}
 
 	/* determine where OFW starts in memory */
 	start = round_down((unsigned long)olpc_ofw_cif, OFW_BOUND);
-	printk(KERN_INFO "OFW detected in memory, cif @ 0x%lx (reserving top %ldMB)\n",
-			(unsigned long)olpc_ofw_cif, (-start) >> 20);
+	printk(KERN_INFO
+	       "OFW detected in memory, cif @ 0x%lx (reserving top %ldMB)\n",
+	       (unsigned long)olpc_ofw_cif, (-start) >> 20);
 	reserve_top_address(-start);
 }
 

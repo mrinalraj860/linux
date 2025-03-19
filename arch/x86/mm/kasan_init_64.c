@@ -25,8 +25,8 @@ static p4d_t tmp_p4d_table[MAX_PTRS_PER_P4D] __initdata __aligned(PAGE_SIZE);
 
 static __init void *early_alloc(size_t size, int nid, bool should_panic)
 {
-	void *ptr = memblock_alloc_try_nid(size, size,
-			__pa(MAX_DMA_ADDRESS), MEMBLOCK_ALLOC_ACCESSIBLE, nid);
+	void *ptr = memblock_alloc_try_nid(size, size, __pa(MAX_DMA_ADDRESS),
+					   MEMBLOCK_ALLOC_ACCESSIBLE, nid);
 
 	if (!ptr && should_panic)
 		panic("%pS: Failed to allocate page, nid=%d from=%lx\n",
@@ -44,8 +44,7 @@ static void __init kasan_populate_pmd(pmd_t *pmd, unsigned long addr,
 		void *p;
 
 		if (boot_cpu_has(X86_FEATURE_PSE) &&
-		    ((end - addr) == PMD_SIZE) &&
-		    IS_ALIGNED(addr, PMD_SIZE)) {
+		    ((end - addr) == PMD_SIZE) && IS_ALIGNED(addr, PMD_SIZE)) {
 			p = early_alloc(PMD_SIZE, nid, false);
 			if (p && pmd_set_huge(pmd, __pa(p), PAGE_KERNEL))
 				return;
@@ -80,8 +79,7 @@ static void __init kasan_populate_pud(pud_t *pud, unsigned long addr,
 		void *p;
 
 		if (boot_cpu_has(X86_FEATURE_GBPAGES) &&
-		    ((end - addr) == PUD_SIZE) &&
-		    IS_ALIGNED(addr, PUD_SIZE)) {
+		    ((end - addr) == PUD_SIZE) && IS_ALIGNED(addr, PUD_SIZE)) {
 			p = early_alloc(PUD_SIZE, nid, false);
 			if (p && pud_set_huge(pud, __pa(p), PAGE_KERNEL))
 				return;
@@ -165,8 +163,7 @@ static void __init map_range(struct range *range)
 	kasan_populate_shadow(start, end, early_pfn_to_nid(range->start));
 }
 
-static void __init clear_pgds(unsigned long start,
-			unsigned long end)
+static void __init clear_pgds(unsigned long start, unsigned long end)
 {
 	pgd_t *pgd;
 	/* See comment in kasan_init() */
@@ -201,9 +198,8 @@ static inline p4d_t *early_p4d_offset(pgd_t *pgd, unsigned long addr)
 	return (p4d_t *)p4d + p4d_index(addr);
 }
 
-static void __init kasan_early_p4d_populate(pgd_t *pgd,
-		unsigned long addr,
-		unsigned long end)
+static void __init kasan_early_p4d_populate(pgd_t *pgd, unsigned long addr,
+					    unsigned long end)
 {
 	pgd_t pgd_entry;
 	p4d_t *p4d, p4d_entry;
@@ -211,7 +207,8 @@ static void __init kasan_early_p4d_populate(pgd_t *pgd,
 
 	if (pgd_none(*pgd)) {
 		pgd_entry = __pgd(_KERNPG_TABLE |
-					__pa_nodebug(kasan_early_shadow_p4d));
+				  __pa_nodebug(kasan_early_shadow_p4d));
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd, pgd_entry);
 	}
 
@@ -223,7 +220,7 @@ static void __init kasan_early_p4d_populate(pgd_t *pgd,
 			continue;
 
 		p4d_entry = __p4d(_KERNPG_TABLE |
-					__pa_nodebug(kasan_early_shadow_pud));
+				  __pa_nodebug(kasan_early_shadow_pud));
 		set_p4d(p4d, p4d_entry);
 	} while (p4d++, addr = next, addr != end && p4d_none(*p4d));
 }
@@ -242,8 +239,7 @@ static void __init kasan_map_early_shadow(pgd_t *pgd)
 	} while (pgd++, addr = next, addr != end);
 }
 
-static void __init kasan_shallow_populate_p4ds(pgd_t *pgd,
-					       unsigned long addr,
+static void __init kasan_shallow_populate_p4ds(pgd_t *pgd, unsigned long addr,
 					       unsigned long end)
 {
 	p4d_t *p4d;
@@ -289,7 +285,7 @@ void __init kasan_early_init(void)
 {
 	int i;
 	pteval_t pte_val = __pa_nodebug(kasan_early_shadow_page) |
-				__PAGE_KERNEL | _PAGE_ENC;
+			   __PAGE_KERNEL | _PAGE_ENC;
 	pmdval_t pmd_val = __pa_nodebug(kasan_early_shadow_pte) | _KERNPG_TABLE;
 	pudval_t pud_val = __pa_nodebug(kasan_early_shadow_pmd) | _KERNPG_TABLE;
 	p4dval_t p4d_val = __pa_nodebug(kasan_early_shadow_pud) | _KERNPG_TABLE;
@@ -341,7 +337,8 @@ void __init kasan_populate_shadow_for_vaddr(void *va, size_t size, int nid)
 
 void __init kasan_init(void)
 {
-	unsigned long shadow_cea_begin, shadow_cea_per_cpu_begin, shadow_cea_end;
+	unsigned long shadow_cea_begin, shadow_cea_per_cpu_begin,
+		shadow_cea_end;
 	int i;
 
 	memcpy(early_top_pgt, init_top_pgt, sizeof(early_top_pgt));
@@ -364,8 +361,9 @@ void __init kasan_init(void)
 
 		ptr = (void *)pgd_page_vaddr(*pgd_offset_k(KASAN_SHADOW_END));
 		memcpy(tmp_p4d_table, (void *)ptr, sizeof(tmp_p4d_table));
+		current.pg_stats.pgd_set_count++;
 		set_pgd(&early_top_pgt[pgd_index(KASAN_SHADOW_END)],
-				__pgd(__pa(tmp_p4d_table) | _KERNPG_TABLE));
+			__pgd(__pa(tmp_p4d_table) | _KERNPG_TABLE));
 	}
 
 	load_cr3(early_top_pgt);
@@ -374,7 +372,7 @@ void __init kasan_init(void)
 	clear_pgds(KASAN_SHADOW_START & PGDIR_MASK, KASAN_SHADOW_END);
 
 	kasan_populate_early_shadow((void *)(KASAN_SHADOW_START & PGDIR_MASK),
-			kasan_mem_to_shadow((void *)PAGE_OFFSET));
+				    kasan_mem_to_shadow((void *)PAGE_OFFSET));
 
 	for (i = 0; i < E820_MAX_ENTRIES; i++) {
 		if (pfn_mapped[i].end == 0)
@@ -384,7 +382,8 @@ void __init kasan_init(void)
 	}
 
 	shadow_cea_begin = kasan_mem_to_shadow_align_down(CPU_ENTRY_AREA_BASE);
-	shadow_cea_per_cpu_begin = kasan_mem_to_shadow_align_up(CPU_ENTRY_AREA_PER_CPU);
+	shadow_cea_per_cpu_begin =
+		kasan_mem_to_shadow_align_up(CPU_ENTRY_AREA_PER_CPU);
 	shadow_cea_end = kasan_mem_to_shadow_align_up(CPU_ENTRY_AREA_BASE +
 						      CPU_ENTRY_AREA_MAP_SIZE);
 
@@ -416,18 +415,18 @@ void __init kasan_init(void)
 	 * area is randomly placed somewhere in the 512GiB range and mapping
 	 * the entire 512GiB range is prohibitively expensive.
 	 */
-	kasan_populate_shadow(shadow_cea_begin,
-			      shadow_cea_per_cpu_begin, 0);
+	kasan_populate_shadow(shadow_cea_begin, shadow_cea_per_cpu_begin, 0);
 
-	kasan_populate_early_shadow((void *)shadow_cea_end,
-			kasan_mem_to_shadow((void *)__START_KERNEL_map));
+	kasan_populate_early_shadow(
+		(void *)shadow_cea_end,
+		kasan_mem_to_shadow((void *)__START_KERNEL_map));
 
 	kasan_populate_shadow((unsigned long)kasan_mem_to_shadow(_stext),
 			      (unsigned long)kasan_mem_to_shadow(_end),
 			      early_pfn_to_nid(__pa(_stext)));
 
 	kasan_populate_early_shadow(kasan_mem_to_shadow((void *)MODULES_END),
-					(void *)KASAN_SHADOW_END);
+				    (void *)KASAN_SHADOW_END);
 
 	load_cr3(init_top_pgt);
 	__flush_tlb_all();

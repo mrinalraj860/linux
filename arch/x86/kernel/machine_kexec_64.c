@@ -4,7 +4,7 @@
  * Copyright (C) 2002-2005 Eric Biederman  <ebiederm@xmission.com>
  */
 
-#define pr_fmt(fmt)	"kexec: " fmt
+#define pr_fmt(fmt) "kexec: " fmt
 
 #include <linux/mm.h>
 #include <linux/kexec.h>
@@ -44,12 +44,11 @@ static int mem_region_callback(struct resource *res, void *arg)
 {
 	struct init_pgtable_data *data = arg;
 
-	return kernel_ident_mapping_init(data->info, data->level4p,
-					 res->start, res->end + 1);
+	return kernel_ident_mapping_init(data->info, data->level4p, res->start,
+					 res->end + 1);
 }
 
-static int
-map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p)
+static int map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p)
 {
 	struct init_pgtable_data data;
 	unsigned long flags;
@@ -59,8 +58,8 @@ map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p)
 	data.level4p = level4p;
 	flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 
-	ret = walk_iomem_res_desc(IORES_DESC_ACPI_TABLES, flags, 0, -1,
-				  &data, mem_region_callback);
+	ret = walk_iomem_res_desc(IORES_DESC_ACPI_TABLES, flags, 0, -1, &data,
+				  mem_region_callback);
 	if (ret && ret != -EINVAL)
 		return ret;
 
@@ -73,18 +72,19 @@ map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p)
 	return 0;
 }
 #else
-static int map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p) { return 0; }
+static int map_acpi_tables(struct x86_mapping_info *info, pgd_t *level4p)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_KEXEC_FILE
-const struct kexec_file_ops * const kexec_file_loaders[] = {
-		&kexec_bzImage64_ops,
-		NULL
+const struct kexec_file_ops *const kexec_file_loaders[] = {
+	&kexec_bzImage64_ops, NULL
 };
 #endif
 
-static int
-map_efi_systab(struct x86_mapping_info *info, pgd_t *level4p)
+static int map_efi_systab(struct x86_mapping_info *info, pgd_t *level4p)
 {
 #ifdef CONFIG_EFI
 	unsigned long mstart, mend;
@@ -95,7 +95,7 @@ map_efi_systab(struct x86_mapping_info *info, pgd_t *level4p)
 		return 0;
 
 	mstart = (boot_params.efi_info.efi_systab |
-			((u64)boot_params.efi_info.efi_systab_hi<<32));
+		  ((u64)boot_params.efi_info.efi_systab_hi << 32));
 
 	if (efi_enabled(EFI_64BIT))
 		mend = mstart + sizeof(efi_system_table_64_t);
@@ -157,13 +157,14 @@ static int init_transition_pgtable(struct kimage *image, pgd_t *pgd)
 	pte_t *pte;
 
 	vaddr = (unsigned long)relocate_kernel;
-	paddr = __pa(page_address(image->control_code_page)+PAGE_SIZE);
+	paddr = __pa(page_address(image->control_code_page) + PAGE_SIZE);
 	pgd += pgd_index(vaddr);
 	if (!pgd_present(*pgd)) {
 		p4d = (p4d_t *)get_zeroed_page(GFP_KERNEL);
 		if (!p4d)
 			goto err;
 		image->arch.p4d = p4d;
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd, __pgd(__pa(p4d) | _KERNPG_TABLE));
 	}
 	p4d = p4d_offset(pgd, vaddr);
@@ -180,6 +181,7 @@ static int init_transition_pgtable(struct kimage *image, pgd_t *pgd)
 		if (!pmd)
 			goto err;
 		image->arch.pmd = pmd;
+		current->pg_stats.pud_set_count++;
 		set_pud(pud, __pud(__pa(pmd) | _KERNPG_TABLE));
 	}
 	pmd = pmd_offset(pud, vaddr);
@@ -188,13 +190,14 @@ static int init_transition_pgtable(struct kimage *image, pgd_t *pgd)
 		if (!pte)
 			goto err;
 		image->arch.pte = pte;
+		current->pg_stats.pmd_set_count++;
 		set_pmd(pmd, __pmd(__pa(pte) | _KERNPG_TABLE));
 	}
 	pte = pte_offset_kernel(pmd, vaddr);
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))
 		prot = PAGE_KERNEL_EXEC;
-
+	current->pg_stats.pte_set_count++;
 	set_pte(pte, pfn_pte(paddr >> PAGE_SHIFT, prot));
 	return 0;
 err:
@@ -219,10 +222,10 @@ static void *alloc_pgt_page(void *data)
 static int init_pgtable(struct kimage *image, unsigned long start_pgtable)
 {
 	struct x86_mapping_info info = {
-		.alloc_pgt_page	= alloc_pgt_page,
-		.context	= image,
-		.page_flag	= __PAGE_KERNEL_LARGE_EXEC,
-		.kernpg_flag	= _KERNPG_TABLE_NOENC,
+		.alloc_pgt_page = alloc_pgt_page,
+		.context = image,
+		.page_flag = __PAGE_KERNEL_LARGE_EXEC,
+		.kernpg_flag = _KERNPG_TABLE_NOENC,
 	};
 	unsigned long mstart, mend;
 	pgd_t *level4p;
@@ -233,7 +236,7 @@ static int init_pgtable(struct kimage *image, unsigned long start_pgtable)
 	clear_page(level4p);
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
-		info.page_flag   |= _PAGE_ENC;
+		info.page_flag |= _PAGE_ENC;
 		info.kernpg_flag |= _PAGE_ENC;
 	}
 
@@ -242,10 +245,10 @@ static int init_pgtable(struct kimage *image, unsigned long start_pgtable)
 
 	for (i = 0; i < nr_pfn_mapped; i++) {
 		mstart = pfn_mapped[i].start << PAGE_SHIFT;
-		mend   = pfn_mapped[i].end << PAGE_SHIFT;
+		mend = pfn_mapped[i].end << PAGE_SHIFT;
 
-		result = kernel_ident_mapping_init(&info,
-						 level4p, mstart, mend);
+		result =
+			kernel_ident_mapping_init(&info, level4p, mstart, mend);
 		if (result)
 			return result;
 	}
@@ -258,10 +261,10 @@ static int init_pgtable(struct kimage *image, unsigned long start_pgtable)
 	 */
 	for (i = 0; i < image->nr_segments; i++) {
 		mstart = image->segment[i].mem;
-		mend   = mstart + image->segment[i].memsz;
+		mend = mstart + image->segment[i].memsz;
 
-		result = kernel_ident_mapping_init(&info,
-						 level4p, mstart, mend);
+		result =
+			kernel_ident_mapping_init(&info, level4p, mstart, mend);
 
 		if (result)
 			return result;
@@ -284,14 +287,14 @@ static int init_pgtable(struct kimage *image, unsigned long start_pgtable)
 
 static void load_segments(void)
 {
-	__asm__ __volatile__ (
-		"\tmovl %0,%%ds\n"
-		"\tmovl %0,%%es\n"
-		"\tmovl %0,%%ss\n"
-		"\tmovl %0,%%fs\n"
-		"\tmovl %0,%%gs\n"
-		: : "a" (__KERNEL_DS) : "memory"
-		);
+	__asm__ __volatile__("\tmovl %0,%%ds\n"
+			     "\tmovl %0,%%es\n"
+			     "\tmovl %0,%%ss\n"
+			     "\tmovl %0,%%fs\n"
+			     "\tmovl %0,%%gs\n"
+			     :
+			     : "a"(__KERNEL_DS)
+			     : "memory");
 }
 
 int machine_kexec_prepare(struct kimage *image)
@@ -363,11 +366,11 @@ void machine_kexec(struct kimage *image)
 	page_list[PA_CONTROL_PAGE] = virt_to_phys(control_page);
 	page_list[VA_CONTROL_PAGE] = (unsigned long)control_page;
 	page_list[PA_TABLE_PAGE] =
-	  (unsigned long)__pa(page_address(image->control_code_page));
+		(unsigned long)__pa(page_address(image->control_code_page));
 
 	if (image->type == KEXEC_TYPE_DEFAULT)
-		page_list[PA_SWAP_PAGE] = (page_to_pfn(image->swap_page)
-						<< PAGE_SHIFT);
+		page_list[PA_SWAP_PAGE] =
+			(page_to_pfn(image->swap_page) << PAGE_SHIFT);
 
 	/*
 	 * The segment registers are funny things, they have both a
@@ -389,8 +392,7 @@ void machine_kexec(struct kimage *image)
 
 	/* now call it */
 	image->start = relocate_kernel((unsigned long)image->head,
-				       (unsigned long)page_list,
-				       image->start,
+				       (unsigned long)page_list, image->start,
 				       image->preserve_context,
 				       host_mem_enc_active);
 
@@ -438,7 +440,6 @@ int arch_kexec_apply_relocations_add(struct purgatory_info *pi,
 		 shstrtab + relsec->sh_name, relsec->sh_info);
 
 	for (i = 0; i < relsec->sh_size / sizeof(*rel); i++) {
-
 		/*
 		 * rel[i].r_offset contains byte offset from beginning
 		 * of section to the storage unit affected.
@@ -470,9 +471,10 @@ int arch_kexec_apply_relocations_add(struct purgatory_info *pi,
 		else
 			name = shstrtab + sechdrs[sym->st_shndx].sh_name;
 
-		pr_debug("Symbol: %s info: %02x shndx: %02x value=%llx size: %llx\n",
-			 name, sym->st_info, sym->st_shndx, sym->st_value,
-			 sym->st_size);
+		pr_debug(
+			"Symbol: %s info: %02x shndx: %02x value=%llx size: %llx\n",
+			name, sym->st_info, sym->st_shndx, sym->st_value,
+			sym->st_size);
 
 		if (sym->st_shndx == SHN_UNDEF) {
 			pr_err("Undefined symbol: %s\n", name);
@@ -544,8 +546,8 @@ int arch_kimage_file_post_load_cleanup(struct kimage *image)
 
 #ifdef CONFIG_CRASH_DUMP
 
-static int
-kexec_mark_range(unsigned long start, unsigned long end, bool protect)
+static int kexec_mark_range(unsigned long start, unsigned long end,
+			    bool protect)
 {
 	struct page *page;
 	unsigned int nr_pages;

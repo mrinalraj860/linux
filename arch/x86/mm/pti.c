@@ -40,11 +40,11 @@
 #include <asm/set_memory.h>
 
 #undef pr_fmt
-#define pr_fmt(fmt)     "Kernel/User page tables isolation: " fmt
+#define pr_fmt(fmt) "Kernel/User page tables isolation: " fmt
 
 /* Backporting helper */
 #ifndef __GFP_NOTRACK
-#define __GFP_NOTRACK	0
+#define __GFP_NOTRACK 0
 #endif
 
 /*
@@ -52,9 +52,9 @@
  * and 64 bit.
  */
 #ifdef CONFIG_X86_64
-#define	PTI_LEVEL_KERNEL_IMAGE	PTI_CLONE_PMD
+#define PTI_LEVEL_KERNEL_IMAGE PTI_CLONE_PMD
 #else
-#define	PTI_LEVEL_KERNEL_IMAGE	PTI_CLONE_PTE
+#define PTI_LEVEL_KERNEL_IMAGE PTI_CLONE_PTE
 #endif
 
 static void __init pti_print_if_insecure(const char *reason)
@@ -70,11 +70,7 @@ static void __init pti_print_if_secure(const char *reason)
 }
 
 /* Assume mode is auto unless overridden via cmdline below. */
-static enum pti_mode {
-	PTI_AUTO = 0,
-	PTI_FORCE_OFF,
-	PTI_FORCE_ON
-} pti_mode;
+static enum pti_mode { PTI_AUTO = 0, PTI_FORCE_OFF, PTI_FORCE_ON } pti_mode;
 
 void __init pti_check_boottime_disable(void)
 {
@@ -154,7 +150,8 @@ pgd_t __pti_set_user_pgtbl(pgd_t *pgdp, pgd_t pgd)
 	 *  - we don't have NX support
 	 *  - we're clearing the PGD (i.e. the new pgd is not present).
 	 */
-	if ((pgd.pgd & (_PAGE_USER|_PAGE_PRESENT)) == (_PAGE_USER|_PAGE_PRESENT) &&
+	if ((pgd.pgd & (_PAGE_USER | _PAGE_PRESENT)) ==
+		    (_PAGE_USER | _PAGE_PRESENT) &&
 	    (__supported_pte_mask & _PAGE_NX))
 		pgd.pgd |= _PAGE_NX;
 
@@ -182,7 +179,7 @@ static p4d_t *pti_user_pagetable_walk_p4d(unsigned long address)
 		unsigned long new_p4d_page = __get_free_page(gfp);
 		if (WARN_ON_ONCE(!new_p4d_page))
 			return NULL;
-
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd, __pgd(_KERNPG_TABLE | __pa(new_p4d_page)));
 	}
 	BUILD_BUG_ON(pgd_leaf(*pgd) != 0);
@@ -296,7 +293,9 @@ static void __init pti_setup_vsyscall(void)
 	set_vsyscall_pgtable_user_bits(kernel_to_user_pgdp(swapper_pg_dir));
 }
 #else
-static void __init pti_setup_vsyscall(void) { }
+static void __init pti_setup_vsyscall(void)
+{
+}
 #endif
 
 enum pti_clone_level {
@@ -304,9 +303,8 @@ enum pti_clone_level {
 	PTI_CLONE_PTE,
 };
 
-static void
-pti_clone_pgtable(unsigned long start, unsigned long end,
-		  enum pti_clone_level level, bool late_text)
+static void pti_clone_pgtable(unsigned long start, unsigned long end,
+			      enum pti_clone_level level, bool late_text)
 {
 	unsigned long addr;
 
@@ -382,7 +380,6 @@ pti_clone_pgtable(unsigned long start, unsigned long end,
 			addr = round_up(addr + 1, PMD_SIZE);
 
 		} else if (level == PTI_CLONE_PTE) {
-
 			/* Walk the page-table down to the pte level */
 			pte = pte_offset_kernel(pmd, addr);
 			if (pte_none(*pte)) {
@@ -395,7 +392,8 @@ pti_clone_pgtable(unsigned long start, unsigned long end,
 				return;
 
 			/* Allocate PTE in the user page-table */
-			target_pte = pti_user_pagetable_walk_pte(addr, late_text);
+			target_pte =
+				pti_user_pagetable_walk_pte(addr, late_text);
 			if (WARN_ON(!target_pte))
 				return;
 
@@ -478,7 +476,7 @@ static void __init pti_clone_user_shared(void)
 	unsigned long start, end;
 
 	start = CPU_ENTRY_AREA_BASE;
-	end   = start + (PAGE_SIZE * CPU_ENTRY_AREA_PAGES);
+	end = start + (PAGE_SIZE * CPU_ENTRY_AREA_PAGES);
 
 	pti_clone_pgtable(start, end, PTI_CLONE_PMD, false);
 }
@@ -499,8 +497,8 @@ static void __init pti_setup_espfix64(void)
  */
 static void pti_clone_entry_text(bool late)
 {
-	pti_clone_pgtable((unsigned long) __entry_text_start,
-			  (unsigned long) __entry_text_end,
+	pti_clone_pgtable((unsigned long)__entry_text_start,
+			  (unsigned long)__entry_text_end,
 			  PTI_LEVEL_KERNEL_IMAGE, late);
 }
 
@@ -563,7 +561,7 @@ static void pti_clone_kernel_text(void)
 	 * clone the areas past rodata, they might contain secrets.
 	 */
 	unsigned long start = PFN_ALIGN(_text);
-	unsigned long end_clone  = (unsigned long)__end_rodata_aligned;
+	unsigned long end_clone = (unsigned long)__end_rodata_aligned;
 	unsigned long end_global = PFN_ALIGN((unsigned long)_etext);
 
 	if (!pti_kernel_image_global_ok())
@@ -627,15 +625,24 @@ void __init pti_init(void)
 	if (cpuid_ecx(0x1) & BIT(17)) {
 		/* Use printk to work around pr_fmt() */
 		printk(KERN_WARNING "\n");
-		printk(KERN_WARNING "************************************************************\n");
-		printk(KERN_WARNING "** WARNING! WARNING! WARNING! WARNING! WARNING! WARNING!  **\n");
-		printk(KERN_WARNING "**                                                        **\n");
-		printk(KERN_WARNING "** You are using 32-bit PTI on a 64-bit PCID-capable CPU. **\n");
-		printk(KERN_WARNING "** Your performance will increase dramatically if you     **\n");
-		printk(KERN_WARNING "** switch to a 64-bit kernel!                             **\n");
-		printk(KERN_WARNING "**                                                        **\n");
-		printk(KERN_WARNING "** WARNING! WARNING! WARNING! WARNING! WARNING! WARNING!  **\n");
-		printk(KERN_WARNING "************************************************************\n");
+		printk(KERN_WARNING
+		       "************************************************************\n");
+		printk(KERN_WARNING
+		       "** WARNING! WARNING! WARNING! WARNING! WARNING! WARNING!  **\n");
+		printk(KERN_WARNING
+		       "**                                                        **\n");
+		printk(KERN_WARNING
+		       "** You are using 32-bit PTI on a 64-bit PCID-capable CPU. **\n");
+		printk(KERN_WARNING
+		       "** Your performance will increase dramatically if you     **\n");
+		printk(KERN_WARNING
+		       "** switch to a 64-bit kernel!                             **\n");
+		printk(KERN_WARNING
+		       "**                                                        **\n");
+		printk(KERN_WARNING
+		       "** WARNING! WARNING! WARNING! WARNING! WARNING! WARNING!  **\n");
+		printk(KERN_WARNING
+		       "************************************************************\n");
 	}
 #endif
 

@@ -1545,7 +1545,7 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
 		p4d = (p4d_t *)get_zeroed_page(GFP_KERNEL);
 		if (!p4d)
 			return -1;
-
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd_entry, __pgd(__pa(p4d) | _KERNPG_TABLE));
 	}
 

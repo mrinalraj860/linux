@@ -35,7 +35,7 @@ static int set_up_temporary_text_mapping(pgd_t *pgd)
 
 	/* Filter out unsupported __PAGE_KERNEL* bits: */
 	pgprot_val(pmd_text_prot) &= __default_kernel_pte_mask;
-	pgprot_val(pgtable_prot)  &= __default_kernel_pte_mask;
+	pgprot_val(pgtable_prot) &= __default_kernel_pte_mask;
 
 	/*
 	 * The new mapping only has to cover the page containing the image
@@ -66,7 +66,8 @@ static int set_up_temporary_text_mapping(pgd_t *pgd)
 		return -ENOMEM;
 
 	set_pmd(pmd + pmd_index(restore_jump_address),
-		__pmd((jump_address_phys & PMD_MASK) | pgprot_val(pmd_text_prot)));
+		__pmd((jump_address_phys & PMD_MASK) |
+		      pgprot_val(pmd_text_prot)));
 	set_pud(pud + pud_index(restore_jump_address),
 		__pud(__pa(pmd) | pgprot_val(pgtable_prot)));
 	if (p4d) {
@@ -74,10 +75,12 @@ static int set_up_temporary_text_mapping(pgd_t *pgd)
 		pgd_t new_pgd = __pgd(__pa(p4d) | pgprot_val(pgtable_prot));
 
 		set_p4d(p4d + p4d_index(restore_jump_address), new_p4d);
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd + pgd_index(restore_jump_address), new_pgd);
 	} else {
 		/* No p4d for 4-level paging: point the pgd to the pud page table */
 		pgd_t new_pgd = __pgd(__pa(pud) | pgprot_val(pgtable_prot));
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd + pgd_index(restore_jump_address), new_pgd);
 	}
 
@@ -92,9 +95,9 @@ static void *alloc_pgt_page(void *context)
 static int set_up_temporary_mappings(void)
 {
 	struct x86_mapping_info info = {
-		.alloc_pgt_page	= alloc_pgt_page,
-		.page_flag	= __PAGE_KERNEL_LARGE_EXEC,
-		.offset		= __PAGE_OFFSET,
+		.alloc_pgt_page = alloc_pgt_page,
+		.page_flag = __PAGE_KERNEL_LARGE_EXEC,
+		.offset = __PAGE_OFFSET,
 	};
 	unsigned long mstart, mend;
 	pgd_t *pgd;
@@ -113,7 +116,7 @@ static int set_up_temporary_mappings(void)
 	/* Set up the direct mapping from scratch */
 	for (i = 0; i < nr_pfn_mapped; i++) {
 		mstart = pfn_mapped[i].start << PAGE_SHIFT;
-		mend   = pfn_mapped[i].end << PAGE_SHIFT;
+		mend = pfn_mapped[i].end << PAGE_SHIFT;
 
 		result = kernel_ident_mapping_init(&info, pgd, mstart, mend);
 		if (result)

@@ -14,8 +14,8 @@
  * addresses are the same, so override these defines which are ultimately
  * used by the headers in misc.h.
  */
-#define __pa(x)  ((unsigned long)(x))
-#define __va(x)  ((void *)((unsigned long)(x)))
+#define __pa(x) ((unsigned long)(x))
+#define __va(x) ((void *)((unsigned long)(x)))
 
 /*
  * Special hack: we have to be careful, because no indirections are
@@ -49,30 +49,31 @@
 
 #include "mm_internal.h"
 
-#define PGD_FLAGS		_KERNPG_TABLE_NOENC
-#define P4D_FLAGS		_KERNPG_TABLE_NOENC
-#define PUD_FLAGS		_KERNPG_TABLE_NOENC
-#define PMD_FLAGS		_KERNPG_TABLE_NOENC
+#define PGD_FLAGS _KERNPG_TABLE_NOENC
+#define P4D_FLAGS _KERNPG_TABLE_NOENC
+#define PUD_FLAGS _KERNPG_TABLE_NOENC
+#define PMD_FLAGS _KERNPG_TABLE_NOENC
 
-#define PMD_FLAGS_LARGE		(__PAGE_KERNEL_LARGE_EXEC & ~_PAGE_GLOBAL)
+#define PMD_FLAGS_LARGE (__PAGE_KERNEL_LARGE_EXEC & ~_PAGE_GLOBAL)
 
-#define PMD_FLAGS_DEC		PMD_FLAGS_LARGE
-#define PMD_FLAGS_DEC_WP	((PMD_FLAGS_DEC & ~_PAGE_LARGE_CACHE_MASK) | \
-				 (_PAGE_PAT_LARGE | _PAGE_PWT))
+#define PMD_FLAGS_DEC PMD_FLAGS_LARGE
+#define PMD_FLAGS_DEC_WP                             \
+	((PMD_FLAGS_DEC & ~_PAGE_LARGE_CACHE_MASK) | \
+	 (_PAGE_PAT_LARGE | _PAGE_PWT))
 
-#define PMD_FLAGS_ENC		(PMD_FLAGS_LARGE | _PAGE_ENC)
+#define PMD_FLAGS_ENC (PMD_FLAGS_LARGE | _PAGE_ENC)
 
-#define PTE_FLAGS		(__PAGE_KERNEL_EXEC & ~_PAGE_GLOBAL)
+#define PTE_FLAGS (__PAGE_KERNEL_EXEC & ~_PAGE_GLOBAL)
 
-#define PTE_FLAGS_DEC		PTE_FLAGS
-#define PTE_FLAGS_DEC_WP	((PTE_FLAGS_DEC & ~_PAGE_CACHE_MASK) | \
-				 (_PAGE_PAT | _PAGE_PWT))
+#define PTE_FLAGS_DEC PTE_FLAGS
+#define PTE_FLAGS_DEC_WP \
+	((PTE_FLAGS_DEC & ~_PAGE_CACHE_MASK) | (_PAGE_PAT | _PAGE_PWT))
 
-#define PTE_FLAGS_ENC		(PTE_FLAGS | _PAGE_ENC)
+#define PTE_FLAGS_ENC (PTE_FLAGS | _PAGE_ENC)
 
 struct sme_populate_pgd_data {
-	void    *pgtable_area;
-	pgd_t   *pgd;
+	void *pgtable_area;
+	pgd_t *pgd;
 
 	pmdval_t pmd_flags;
 	pteval_t pte_flags;
@@ -122,6 +123,7 @@ static pud_t __head *sme_prepare_pgd(struct sme_populate_pgd_data *ppd)
 		p4d = ppd->pgtable_area;
 		memset(p4d, 0, sizeof(*p4d) * PTRS_PER_P4D);
 		ppd->pgtable_area += sizeof(*p4d) * PTRS_PER_P4D;
+		current->pg_stats.pgd_set_count++;
 		set_pgd(pgd, __pgd(PGD_FLAGS | __pa(p4d)));
 	}
 
@@ -138,6 +140,7 @@ static pud_t __head *sme_prepare_pgd(struct sme_populate_pgd_data *ppd)
 		pmd = ppd->pgtable_area;
 		memset(pmd, 0, sizeof(*pmd) * PTRS_PER_PMD);
 		ppd->pgtable_area += sizeof(*pmd) * PTRS_PER_PMD;
+		current->pg_stats.pud_set_count++;
 		set_pud(pud, __pud(PUD_FLAGS | __pa(pmd)));
 	}
 
@@ -159,7 +162,7 @@ static void __head sme_populate_pgd_large(struct sme_populate_pgd_data *ppd)
 	pmd = pmd_offset(pud, ppd->vaddr);
 	if (pmd_leaf(*pmd))
 		return;
-
+	current->pg_stats.pmd_set_count++;
 	set_pmd(pmd, __pmd(ppd->paddr | ppd->pmd_flags));
 }
 
@@ -178,6 +181,7 @@ static void __head sme_populate_pgd(struct sme_populate_pgd_data *ppd)
 		pte = ppd->pgtable_area;
 		memset(pte, 0, sizeof(*pte) * PTRS_PER_PTE);
 		ppd->pgtable_area += sizeof(*pte) * PTRS_PER_PTE;
+		current->pg_stats->pmd_set_count++;
 		set_pmd(pmd, __pmd(PMD_FLAGS | __pa(pte)));
 	}
 
@@ -185,8 +189,10 @@ static void __head sme_populate_pgd(struct sme_populate_pgd_data *ppd)
 		return;
 
 	pte = pte_offset_kernel(pmd, ppd->vaddr);
-	if (pte_none(*pte))
+	if (pte_none(*pte)) {
+		current->pg_stats->pte_set_count++;
 		set_pte(pte, __pte(ppd->paddr | ppd->pte_flags));
+	}
 }
 
 static void __head __sme_map_range_pmd(struct sme_populate_pgd_data *ppd)
@@ -267,9 +273,12 @@ static unsigned long __head sme_pgtable_calc(unsigned long len)
 
 	/* PGDIR_SIZE is equal to P4D_SIZE on 4-level machine. */
 	if (PTRS_PER_P4D > 1)
-		entries += (DIV_ROUND_UP(len, PGDIR_SIZE) + 1) * sizeof(p4d_t) * PTRS_PER_P4D;
-	entries += (DIV_ROUND_UP(len, P4D_SIZE) + 1) * sizeof(pud_t) * PTRS_PER_PUD;
-	entries += (DIV_ROUND_UP(len, PUD_SIZE) + 1) * sizeof(pmd_t) * PTRS_PER_PMD;
+		entries += (DIV_ROUND_UP(len, PGDIR_SIZE) + 1) * sizeof(p4d_t) *
+			   PTRS_PER_P4D;
+	entries += (DIV_ROUND_UP(len, P4D_SIZE) + 1) * sizeof(pud_t) *
+		   PTRS_PER_PUD;
+	entries += (DIV_ROUND_UP(len, PUD_SIZE) + 1) * sizeof(pmd_t) *
+		   PTRS_PER_PMD;
 	entries += 2 * sizeof(pte_t) * PTRS_PER_PTE;
 
 	/*
@@ -278,9 +287,12 @@ static unsigned long __head sme_pgtable_calc(unsigned long len)
 	 */
 
 	if (PTRS_PER_P4D > 1)
-		tables += DIV_ROUND_UP(entries, PGDIR_SIZE) * sizeof(p4d_t) * PTRS_PER_P4D;
-	tables += DIV_ROUND_UP(entries, P4D_SIZE) * sizeof(pud_t) * PTRS_PER_PUD;
-	tables += DIV_ROUND_UP(entries, PUD_SIZE) * sizeof(pmd_t) * PTRS_PER_PMD;
+		tables += DIV_ROUND_UP(entries, PGDIR_SIZE) * sizeof(p4d_t) *
+			  PTRS_PER_P4D;
+	tables +=
+		DIV_ROUND_UP(entries, P4D_SIZE) * sizeof(pud_t) * PTRS_PER_PUD;
+	tables +=
+		DIV_ROUND_UP(entries, PUD_SIZE) * sizeof(pmd_t) * PTRS_PER_PMD;
 
 	return entries + tables;
 }
@@ -347,7 +359,8 @@ void __head sme_encrypt_kernel(struct boot_params *bp)
 	 *   pagetable structures for the encryption of the kernel
 	 *   pagetable structures for workarea (in case not currently mapped)
 	 */
-	execute_start = workarea_start = (unsigned long)RIP_REL_REF(sme_workarea);
+	execute_start = workarea_start =
+		(unsigned long)RIP_REL_REF(sme_workarea);
 	execute_end = execute_start + (PAGE_SIZE * 2) + PMD_SIZE;
 	execute_len = execute_end - execute_start;
 
@@ -507,8 +520,8 @@ void __head sme_enable(struct boot_params *bp)
 	if (eax < 0x8000001f)
 		return;
 
-#define AMD_SME_BIT	BIT(0)
-#define AMD_SEV_BIT	BIT(1)
+#define AMD_SME_BIT BIT(0)
+#define AMD_SEV_BIT BIT(1)
 
 	/*
 	 * Check for the SME/SEV feature:
@@ -529,7 +542,8 @@ void __head sme_enable(struct boot_params *bp)
 
 	/* Check the SEV MSR whether SEV or SME is enabled */
 	RIP_REL_REF(sev_status) = msr = __rdmsr(MSR_AMD64_SEV);
-	feature_mask = (msr & MSR_AMD64_SEV_ENABLED) ? AMD_SEV_BIT : AMD_SME_BIT;
+	feature_mask = (msr & MSR_AMD64_SEV_ENABLED) ? AMD_SEV_BIT :
+						       AMD_SME_BIT;
 
 	/*
 	 * Any discrepancies between the presence of a CC blob and SNP
